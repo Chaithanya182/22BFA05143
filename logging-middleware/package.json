@@ -1,0 +1,12 @@
+{
+  "name": "custom-logging-middleware",
+  "version": "1.0.0",
+  "description": "Reusable logging middleware for URL shortener microservice",
+  "main": "logger.js",
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "keywords": ["logging", "middleware"],
+  "author": "Developer",
+  "license": "MIT"
+}

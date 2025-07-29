@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener Microservice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+        }
+        
+        .error {
+            background: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .stats-table th,
+        .stats-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .stats-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔗 URL Shortener</h1>
+            <p>Create short URLs with custom codes and track analytics</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('shortener')">URL Shortener</button>
+            <button class="tab-button" onclick="showTab('analytics')">Analytics Dashboard</button>
+        </div>
+        
+        <!-- URL Shortener Tab -->
+        <div id="shortener" class="tab-content active">
+            <form id="shortenForm">
+                <div class="form-group">
+                    <label for="url">URL to shorten *</label>
+                    <input type="url" id="url" name="url" placeholder="https://example.com/very-long-url" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="validity">Validity (minutes)</label>
+                        <input type="number" id="validity" name="validity" value="30" min="1" max="10080">
+                    </div>
+                    <div class="form-group">
+                        <label for="shortcode">Custom shortcode (optional)</label>
+                        <input type="text" id="shortcode" name="shortcode" placeholder="my-code" pattern="[a-zA-Z0-9]{3,20}">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Shorten URL</button>
+            </form>
+            
+            <div id="shortenResult"></div>
+        </div>
+        
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <button class="btn" onclick="loadAnalytics()" style="margin-bottom: 20px;">Load Analytics</button>
+            <div id="analyticsContent">
+                <p style="text-align: center; color: #666;">Click "Load Analytics" to view URL statistics</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // URL Shortener form
+        document.getElementById('shortenForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                url: formData.get('url'),
+                validity: parseInt(formData.get('validity')) || 30,
+                shortcode: formData.get('shortcode') || undefined
+            };
+            
+            const resultDiv = document.getElementById('shortenResult');
+            resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Shortening URL...</p></div>';
+            
+            try {
+                const response = await fetch('/shorturls', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            <h3>✅ URL Shortened Successfully!</h3>
+                            <p><strong>Short Link:</strong> <a href="${result.shortLink}" target="_blank">${result.shortLink}</a></p>
+                            <p><strong>Original URL:</strong> ${result.originalUrl}</p>
+                            <p><strong>Expires:</strong> ${new Date(result.expiry).toLocaleString()}</p>
+                            <p><strong>Shortcode:</strong> ${result.shortcode}</p>
+                            <p><strong>Valid for:</strong> ${result.validityMinutes} minutes</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ Error</h3>
+                            <p>${result.message || result.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Network Error</h3>
+                        <p>Unable to connect to the server. Please check if the backend is running.</p>
+                    </div>
+                `;
+            }
+        });
+        
+        // Analytics loader
+        async function loadAnalytics() {
+            const contentDiv = document.getElementById('analyticsContent');
+            contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading analytics...</p></div>';
+            
+            try {
+                const response = await fetch('/api/all-urls');
+                const urls = await response.json();
+                
+                if (response.ok) {
+                    if (urls.length === 0) {
+                        contentDiv.innerHTML = '<p style="text-align: center; color: #666;">No URLs created yet. Create your first short URL to see analytics.</p>';
+                        return;
+                    }
+                    
+                    const totalClicks = urls.reduce((sum, url) => sum + url.total_clicks, 0);
+                    const activeUrls = urls.filter(url => !url.isExpired).length;
+                    const expiredUrls = urls.filter(url => url.isExpired).length;
+                    
+                    let html = `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <h3 style="color: #667eea; margin-bottom: 5px;">${urls.length}</h3>
+                                <p style="color: #666; font-size: 0.9rem;">Total URLs</p>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <h3 style="color: #28a745; margin-bottom: 5px;">${totalClicks}</h3>
+                                <p style="color: #666; font-size: 0.9rem;">Total Clicks</p>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <h3 style="color: #17a2b8; margin-bottom: 5px;">${activeUrls}</h3>
+                                <p style="color: #666; font-size: 0.9rem;">Active URLs</p>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                <h3 style="color: #ffc107; margin-bottom: 5px;">${expiredUrls}</h3>
+                                <p style="color: #666; font-size: 0.9rem;">Expired URLs</p>
+                            </div>
+                        </div>
+                        
+                        <table class="stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Shortcode</th>
+                                    <th>Original URL</th>
+                                    <th>Status</th>
+                                    <th>Clicks</th>
+                                    <th>Created</th>
+                                    <th>Expires</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    urls.forEach(url => {
+                        html += `
+                            <tr>
+                                <td style="font-family: monospace;">${url.shortcode}</td>
+                                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${url.original_url}">${url.original_url}</td>
+                                <td>
+                                    <span class="status-badge ${url.isExpired ? 'status-expired' : 'status-active'}">
+                                        ${url.isExpired ? 'Expired' : 'Active'}
+                                    </span>
+                                </td>
+                                <td><strong>${url.total_clicks}</strong></td>
+                                <td>${new Date(url.created_at).toLocaleString()}</td>
+                                <td style="color: ${url.isExpired ? '#dc3545' : 'inherit'}">${new Date(url.expires_at).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    contentDiv.innerHTML = html;
+                } else {
+                    contentDiv.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ Error Loading Analytics</h3>
+                            <p>${urls.message || 'Failed to load analytics data'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Network Error</h3>
+                        <p>Unable to connect to the server. Please check if the backend is running.</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
